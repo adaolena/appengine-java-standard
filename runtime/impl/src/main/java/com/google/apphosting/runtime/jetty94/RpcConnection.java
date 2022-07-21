@@ -16,6 +16,15 @@
 
 package com.google.apphosting.runtime.jetty94;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.EventListener;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import javax.servlet.RequestDispatcher;
+import javax.servlet.ServletException;
+
 import com.google.apphosting.base.AppVersionKey;
 import com.google.apphosting.base.protos.HttpPb.HttpRequest;
 import com.google.apphosting.base.protos.HttpPb.ParsedHttpHeader;
@@ -27,13 +36,6 @@ import com.google.apphosting.runtime.jetty9.RpcEndPoint;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.protobuf.ByteString;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CountDownLatch;
-import javax.servlet.RequestDispatcher;
-import javax.servlet.ServletException;
 import org.eclipse.jetty.http.BadMessageException;
 import org.eclipse.jetty.http.HttpField;
 import org.eclipse.jetty.http.HttpFields;
@@ -45,6 +47,7 @@ import org.eclipse.jetty.http.MetaData;
 import org.eclipse.jetty.io.Connection;
 import org.eclipse.jetty.io.EndPoint;
 import org.eclipse.jetty.server.HttpChannel;
+import org.eclipse.jetty.server.HttpInput;
 import org.eclipse.jetty.server.HttpInput.Content;
 import org.eclipse.jetty.server.HttpTransport;
 import org.eclipse.jetty.server.Request;
@@ -86,8 +89,17 @@ public class RpcConnection implements Connection, HttpTransport {
   }
 
   @Override
-  public void addListener(Listener listener) {
-    listeners.add(listener);
+  public void addEventListener(EventListener eventListener)
+  {
+    if (eventListener instanceof Listener)
+      listeners.add((Listener)eventListener);
+  }
+
+  @Override
+  public void removeEventListener(EventListener eventListener)
+  {
+    if (eventListener instanceof Listener)
+      listeners.remove(eventListener);
   }
 
   @Override
@@ -98,7 +110,8 @@ public class RpcConnection implements Connection, HttpTransport {
   }
 
   @Override
-  public void onClose() {
+  public void onClose(Throwable throwable)
+  {
     for (Listener listener : listeners) {
       listener.onClosed(this);
     }
@@ -166,6 +179,52 @@ public class RpcConnection implements Connection, HttpTransport {
           }
 
           @Override
+          public boolean needContent()
+          {
+            return true;
+          }
+
+          private final Content EOF_CONTENT = new HttpInput.EofContent();
+          private Content currentContent = (postdata == null) ? null : new Content(BufferUtil.toBuffer(postdata));
+          @Override
+          public Content produceContent()
+          {
+            synchronized (this)
+            {
+              Content content = currentContent;
+              if (content != null)
+              {
+                currentContent = null;
+                return content;
+              }
+
+              return EOF_CONTENT;
+            }
+          }
+
+          @Override
+          public boolean failAllContent(Throwable failure)
+          {
+            synchronized (this)
+            {
+              currentContent = null;
+            }
+            return true;
+          }
+
+          @Override
+          public boolean failed(Throwable failure)
+          {
+            return getRequest().getHttpInput().onContentProducible();
+          }
+
+          @Override
+          protected boolean eof()
+          {
+            return getRequest().getHttpInput().onContentProducible();
+          }
+
+          @Override
           public void onCompleted() {
             super.onCompleted();
             blockEndRequest.countDown();
@@ -187,12 +246,8 @@ public class RpcConnection implements Connection, HttpTransport {
 
     try {
       String url = rpc.getUrl();
-      HttpURI uri = new HttpURI(url);
-
-      HttpVersion version = HttpVersion.CACHE.getBest(rpc.getHttpVersion());
-      MetaData.Request requestData =
-          new MetaData.Request(
-              methodS, uri, version, new HttpFields(), postdata == null ? -1 : postdata.length);
+      HttpURI.Mutable uri = HttpURI.build(url);
+      HttpFields.Mutable fields = HttpFields.build();
 
       // pretend to parse the header fields
       boolean contentLength = false;
@@ -216,25 +271,26 @@ public class RpcConnection implements Connection, HttpTransport {
           }
         }
 
-        requestData.getFields().add(field);
+        fields.add(field);
       }
-      // end of headers. This should return true to indicate that we are good to continue handling
-      channel.onRequest(requestData);
+
       // is this SSL
       if (rpc.getIsHttps()) {
-        // the following code has to be done after the channel.onRequest(requestData) call
-        // to avoid NPE.
-        request.setScheme(HttpScheme.HTTPS.asString());
+        uri.scheme(HttpScheme.HTTPS.asString());
         request.setSecure(true);
       }
+
+      HttpVersion version = HttpVersion.CACHE.getBest(rpc.getHttpVersion());
+      MetaData.Request requestData =
+        new MetaData.Request(
+          methodS, uri, version, fields, postdata == null ? -1 : postdata.length);
+
+      // end of headers. This should return true to indicate that we are good to continue handling
+      channel.onRequest(requestData);
 
       // signal the end of the request
       channel.onRequestComplete();
 
-      // Give the input any post content.
-      if (postdata != null) {
-        channel.getRequest().getHttpInput().addContent(new Content(BufferUtil.toBuffer(postdata)));
-      }
     } catch (Exception t) {
       // Any exception at this stage is most likely due to a bad message
       // We cannot use response.sendError as it needs a validly initiated channel to work.
@@ -370,29 +426,6 @@ public class RpcConnection implements Connection, HttpTransport {
   }
 
   @Override
-  public void send(
-      MetaData.Response info,
-      boolean head,
-      ByteBuffer content,
-      boolean lastContent,
-      Callback callback) {
-
-    if (info != null) {
-      upResponse.setHttpResponseCode(info.getStatus());
-      for (HttpField field : info.getFields()) {
-        upResponse.addHttpOutputHeaders(ParsedHttpHeader.newBuilder()
-            .setKey(field.getName())
-            .setValue(field.getValue()));
-      }
-    }
-
-    if (BufferUtil.hasContent(content)) {
-      aggregate = aggregate.concat(ByteString.copyFrom(content));
-    }
-    callback.succeeded();
-  }
-
-  @Override
   public void onCompleted() {
     upResponse.setHttpResponseResponse(aggregate);
     aggregate = ByteString.EMPTY;
@@ -401,6 +434,24 @@ public class RpcConnection implements Connection, HttpTransport {
   @Override
   public void abort(Throwable thrwbl) {
     endPoint.close();
+  }
+
+  @Override
+  public void send(MetaData.Request request, MetaData.Response response, ByteBuffer content, boolean lastContent, Callback callback) {
+
+    if (response != null) {
+      upResponse.setHttpResponseCode(response.getStatus());
+      for (HttpField field : response.getFields()) {
+        upResponse.addHttpOutputHeaders(ParsedHttpHeader.newBuilder()
+          .setKey(field.getName())
+          .setValue(field.getValue()));
+      }
+    }
+
+    if (BufferUtil.hasContent(content)) {
+      aggregate = aggregate.concat(ByteString.copyFrom(content));
+    }
+    callback.succeeded();
   }
 
   @Override
@@ -414,15 +465,7 @@ public class RpcConnection implements Connection, HttpTransport {
   }
 
   @Override
-  public boolean isOptimizedForDirectBuffers() {
-    return false;
-  }
-
-  @Override
   public boolean onIdleExpired() {
     return false;
   }
-
-  @Override
-  public void removeListener(Listener ll) {}
 }

@@ -16,8 +16,6 @@
 
 package com.google.apphosting.runtime.jetty94;
 
-import com.google.apphosting.utils.config.AppYaml;
-import com.google.common.base.Strings;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Map;
@@ -25,9 +23,13 @@ import java.util.Optional;
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
+import com.google.apphosting.utils.config.AppYaml;
+import com.google.common.base.Strings;
 import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.http.HttpMethod;
 import org.eclipse.jetty.io.WriterOutputStream;
+import org.eclipse.jetty.util.IO;
 import org.eclipse.jetty.util.resource.Resource;
 
 /** Cass that sends data with headers. */
@@ -37,6 +39,12 @@ public class FileSender {
 
   public FileSender(AppYaml appYaml) {
     this.appYaml = appYaml;
+  }
+
+  public static void write(Resource resource, OutputStream outputStream, long contentLength) throws IOException
+  {
+    if (resource != null && resource.getInputStream() != null)
+      IO.copy(resource.getInputStream(), outputStream, contentLength);
   }
 
   /** Writes or includes the specified resource. */
@@ -59,7 +67,7 @@ public class FileSender {
     } catch (IllegalStateException e) {
       out = new WriterOutputStream(response.getWriter());
     }
-    resource.writeTo(out, 0, contentLength);
+    write(resource, out, contentLength);
   }
 
   /** Writes the headers that should accompany the specified resource. */

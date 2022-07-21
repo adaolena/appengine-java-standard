@@ -16,12 +16,13 @@
 
 package com.google.apphosting.runtime.jetty9;
 
-import com.google.apphosting.base.protos.RuntimePb.UPRequest;
-import com.google.apphosting.base.protos.RuntimePb.UPResponse;
-import com.google.apphosting.runtime.MutableUpResponse;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+
+import com.google.apphosting.base.protos.RuntimePb.UPRequest;
+import com.google.apphosting.base.protos.RuntimePb.UPResponse;
+import com.google.apphosting.runtime.MutableUpResponse;
 import org.eclipse.jetty.io.Connection;
 import org.eclipse.jetty.io.EndPoint;
 import org.eclipse.jetty.util.Callback;
@@ -94,6 +95,11 @@ public class RpcEndPoint implements EndPoint {
   }
 
   @Override
+  public void close(Throwable throwable) {
+    closed = true;
+  }
+
+  @Override
   public int fill(ByteBuffer buffer) throws IOException {
     throw new UnsupportedOperationException();
   }
@@ -149,10 +155,14 @@ public class RpcEndPoint implements EndPoint {
   }
 
   @Override
-  public void onOpen() {}
+  public void onOpen() {
+
+  }
 
   @Override
-  public void onClose() {}
+  public void onClose(Throwable throwable) {
+    closed = true;
+  }
 
   @Override
   public void upgrade(Connection a) {}
@@ -161,11 +171,4 @@ public class RpcEndPoint implements EndPoint {
   public boolean isFillInterested() {
     return false;
   }
-
-  @Override
-  public boolean isOptimizedForDirectBuffers() {
-    return false;
-  }
-
-
 }

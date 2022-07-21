@@ -16,7 +16,26 @@
 
 package com.google.appengine.tools.development.jetty9;
 
-import static com.google.appengine.tools.development.LocalEnvironment.DEFAULT_VERSION_HOSTNAME;
+import java.io.File;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.net.URL;
+import java.security.Permissions;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Pattern;
+import javax.servlet.DispatcherType;
+import javax.servlet.RequestDispatcher;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import com.google.appengine.api.log.dev.DevLogHandler;
 import com.google.appengine.api.log.dev.LocalLogService;
@@ -39,37 +58,21 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
-import java.io.File;
-import java.io.FilenameFilter;
-import java.io.IOException;
-import java.net.URL;
-import java.security.Permissions;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Semaphore;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.regex.Pattern;
-import javax.servlet.DispatcherType;
-import javax.servlet.RequestDispatcher;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.eclipse.jetty.server.HttpChannel;
 import org.eclipse.jetty.server.HttpConnectionFactory;
+import org.eclipse.jetty.server.NetworkTrafficServerConnector;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.ContextHandler;
 import org.eclipse.jetty.server.handler.HandlerWrapper;
-import org.eclipse.jetty.server.nio.NetworkTrafficSelectChannelConnector;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.Scanner;
+import org.eclipse.jetty.util.component.LifeCycle;
 import org.eclipse.jetty.util.resource.Resource;
 import org.eclipse.jetty.webapp.WebAppContext;
+
+import static com.google.appengine.tools.development.LocalEnvironment.DEFAULT_VERSION_HOSTNAME;
+import static org.eclipse.jetty.util.Scanner.MAX_SCAN_DEPTH;
 
 /**
  * Implements a Jetty backed {@link ContainerService}.
@@ -315,8 +318,8 @@ public class JettyContainerService extends AbstractContainerService {
 
     server = new Server();
     try {
-      NetworkTrafficSelectChannelConnector connector =
-          new NetworkTrafficSelectChannelConnector(
+      NetworkTrafficServerConnector connector =
+          new NetworkTrafficServerConnector(
               server,
               null,
               null,
@@ -327,8 +330,6 @@ public class JettyContainerService extends AbstractContainerService {
       connector.addBean(new CompletionListener());
       connector.setHost(address);
       connector.setPort(port);
-      // Linux keeps the port blocked after shutdown if we don't disable this.
-      connector.setSoLingerTime(0);
       connector.open();
 
       server.addConnector(connector);
@@ -479,18 +480,14 @@ public class JettyContainerService extends AbstractContainerService {
     scanner.setScanInterval(interval);
     scanner.setScanDirs(scanList);
     scanner.setReportExistingFilesOnStartup(false);
-    scanner.setRecursive(true);
+    scanner.setScanDepth(MAX_SCAN_DEPTH); // TODO: review.
 
-    scanner.addListener(
-        new Scanner.BulkListener() {
-          @Override
-          public void filesChanged(List<String> changedFiles) throws Exception {
-            log.info("A file has changed, reloading the web application.");
-            reloadWebApp();
-          }
-        });
+    scanner.addListener((Scanner.BulkListener)filenames -> {
+      log.info("A file has changed, reloading the web application.");
+      reloadWebApp();
+    });
 
-    scanner.doStart();
+    LifeCycle.start(scanner);
   }
 
   /**

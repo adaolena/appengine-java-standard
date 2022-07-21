@@ -16,7 +16,6 @@
 
 package com.google.appengine.tools.development.jetty9;
 
-import com.google.apphosting.utils.config.AppEngineWebXml;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.InvalidPathException;
@@ -32,6 +31,8 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletRequestWrapper;
 import javax.servlet.http.HttpServletResponse;
+
+import com.google.apphosting.utils.config.AppEngineWebXml;
 import org.eclipse.jetty.server.handler.ContextHandler;
 import org.eclipse.jetty.util.URIUtil;
 import org.eclipse.jetty.util.resource.Resource;
@@ -132,7 +133,7 @@ public class StaticFileFilter implements Filter {
       }
     } finally {
       if (resource != null) {
-        resource.release();
+        resource.close();
       }
     }
     chain.doFilter(request, response);

@@ -16,8 +16,6 @@
 
 package com.google.appengine.tools.development.jetty9;
 
-import com.google.apphosting.utils.config.AppEngineWebXml;
-import com.google.apphosting.utils.config.WebXml;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.util.Objects;
@@ -28,10 +26,12 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
+import com.google.apphosting.utils.config.AppEngineWebXml;
+import com.google.apphosting.utils.config.WebXml;
 import org.eclipse.jetty.http.pathmap.MappedResource;
 import org.eclipse.jetty.server.handler.ContextHandler;
 import org.eclipse.jetty.servlet.ServletHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.URIUtil;
 import org.eclipse.jetty.util.resource.Resource;
 import org.eclipse.jetty.webapp.WebAppContext;
@@ -195,7 +195,7 @@ public class LocalResourceFileServlet extends HttpServlet {
       }
     } finally {
       if (resource != null) {
-        resource.release();
+        resource.close();
       }
     }
   }
@@ -258,15 +258,15 @@ public class LocalResourceFileServlet extends HttpServlet {
 
     ContextHandler.Context context = (ContextHandler.Context) getServletContext();
     ServletHandler handler = ((WebAppContext) context.getContextHandler()).getServletHandler();
-    MappedResource<ServletHolder> defaultEntry = handler.getHolderEntry("/");
-    MappedResource<ServletHolder> jspEntry = handler.getHolderEntry("/foo.jsp");
+    MappedResource<ServletHandler.MappedServlet> defaultEntry = handler.getHolderEntry("/");
+    MappedResource<ServletHandler.MappedServlet> jspEntry = handler.getHolderEntry("/foo.jsp");
 
     // Search for dynamic welcome files.
     for (String welcomeName : welcomeFiles) {
       String welcomePath = path + welcomeName;
       String relativePath = welcomePath.substring(1);
 
-      MappedResource<ServletHolder> entry = handler.getHolderEntry(welcomePath);
+      MappedResource<ServletHandler.MappedServlet> entry = handler.getHolderEntry(welcomePath);
       if (!Objects.equals(entry, defaultEntry) && !Objects.equals(entry, jspEntry)) {
         // It's a path mapped to a servlet.  Forward to it.
         RequestDispatcher dispatcher = request.getRequestDispatcher(path + welcomeName);

@@ -16,6 +16,15 @@
 
 package com.google.apphosting.runtime.jetty94;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+
 import com.google.appengine.api.NamespaceManager;
 import com.google.appengine.api.datastore.Blob;
 import com.google.appengine.api.datastore.DatastoreService;
@@ -26,17 +35,7 @@ import com.google.appengine.api.datastore.EntityNotFoundException;
 import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.KeyFactory;
 import com.google.apphosting.runtime.SessionStore;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
-// <internal22>
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 import org.eclipse.jetty.server.session.AbstractSessionDataStore;
 import org.eclipse.jetty.server.session.SessionData;
 import org.eclipse.jetty.server.session.UnreadableSessionDataException;
@@ -102,17 +101,7 @@ class DatastoreSessionStore implements SessionStore {
     private static final int INITIAL_BACKOFF_MS = 50;
     private final DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
 
-    /**
-     * Scavenging is not performed by the Jetty session setup, so this method will never be called.
-     *
-     * @see org.eclipse.jetty.server.session.AbstractSessionDataStore#doGetExpired(java.util.Set)
-     */
-    @Override
-    public Set<String> doGetExpired(Set<String> candidates) {
-      return ImmutableSet.of();
-    }
-
-    /** Save a session to Appengine datastore. */
+      /** Save a session to Appengine datastore. */
     @Override
     public void doStore(String id, SessionData data, long lastSaveTime)
         throws InterruptedException, IOException, UnwriteableSessionDataException, Retryable {
@@ -151,18 +140,19 @@ class DatastoreSessionStore implements SessionStore {
      *
      * @see org.eclipse.jetty.server.session.SessionDataStore#exists(java.lang.String)
      */
-    @Override
-    public boolean exists(String id) throws Exception {
-      try {
-        Entity entity = datastore.get(createKeyForSession(id));
+      @Override
+      public boolean doExists(String id) throws Exception
+      {
+          try {
+              Entity entity = datastore.get(createKeyForSession(id));
 
-        logger.atFinest().log("Session %s %s", id, (entity != null) ? "exists" : "does not exist");
-        return true;
-      } catch (EntityNotFoundException ex) {
-        logger.atFine().log("Session %s does not exist", id);
-        return false;
+              logger.atFinest().log("Session %s %s", id, (entity != null) ? "exists" : "does not exist");
+              return true;
+          } catch (EntityNotFoundException ex) {
+              logger.atFine().log("Session %s does not exist", id);
+              return false;
+          }
       }
-    }
 
     /**
      * Remove the Entity for the given session key.
@@ -192,7 +182,29 @@ class DatastoreSessionStore implements SessionStore {
       }
     }
 
-    /** Return a {@link Key} for the given session id string ( sessionId) in the empty namespace. */
+      /**
+       * Scavenging is not performed by the Jetty session setup, so this method will never be called.
+       *
+       * @see org.eclipse.jetty.server.session.AbstractSessionDataStore#doCheckExpired(Set, long)
+       */
+      @Override
+      public Set<String> doCheckExpired(Set<String> set, long l)
+      {
+          return null;
+      }
+
+      @Override
+      public Set<String> doGetExpired(long l)
+      {
+          return null;
+      }
+
+      @Override
+      public void doCleanOrphans(long l)
+      {
+      }
+
+      /** Return a {@link Key} for the given session id string ( sessionId) in the empty namespace. */
     static Key createKeyForSession(String id) {
       String originalNamespace = NamespaceManager.get();
       try {

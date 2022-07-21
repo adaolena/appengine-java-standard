@@ -16,7 +16,13 @@
 
 package com.google.apphosting.runtime.jetty94;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.Optional;
+import javax.servlet.ServletException;
 
 import com.google.apphosting.base.AppVersionKey;
 import com.google.apphosting.base.protos.AppinfoPb;
@@ -25,20 +31,14 @@ import com.google.apphosting.base.protos.RuntimePb.UPResponse;
 import com.google.apphosting.runtime.AppVersion;
 import com.google.apphosting.runtime.MutableUpResponse;
 import com.google.apphosting.runtime.ServletEngineAdapter;
-import com.google.apphosting.runtime.jetty9.JettyLogger;
 import com.google.apphosting.utils.config.AppEngineConfigException;
 import com.google.apphosting.utils.config.AppYaml;
 import com.google.common.flogger.GoogleLogger;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.Optional;
-import javax.servlet.ServletException;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * This is an implementation of ServletEngineAdapter that uses the third-party Jetty servlet engine.
@@ -55,7 +55,7 @@ public class JettyServletEngineAdapter implements ServletEngineAdapter {
     // Tell Jetty to use our custom logging class (that forwards to
     // java.util.logging) instead of writing to System.err
     // Documentation: http://www.eclipse.org/jetty/documentation/current/configuring-logging.html
-    System.setProperty("org.eclipse.jetty.util.log.class", JettyLogger.class.getName());
+    // System.setProperty("org.eclipse.jetty.util.log.class", JettyLogger.class.getName());
     // Remove internal URLs.
     System.setProperty("java.vendor.url", "");
     System.setProperty("java.vendor.url.bug", "");

@@ -16,21 +16,6 @@
 
 package com.google.apphosting.runtime.jetty94;
 
-import static com.google.common.base.StandardSystemProperty.JAVA_IO_TMPDIR;
-import static java.nio.charset.StandardCharsets.UTF_8;
-
-import com.google.apphosting.api.ApiProxy;
-import com.google.apphosting.api.ApiProxy.LogRecord;
-import com.google.apphosting.runtime.jetty9.AppEngineAuthentication;
-import com.google.apphosting.runtime.jetty9.ParseBlobUploadHandler;
-import com.google.apphosting.runtime.jetty9.RequestListener;
-import com.google.apphosting.runtime.jetty9.TransactionCleanupListener;
-import com.google.apphosting.utils.servlet.DeferredTaskServlet;
-import com.google.apphosting.utils.servlet.JdbcMySqlConnectionCleanupFilter;
-import com.google.apphosting.utils.servlet.SessionCleanupServlet;
-import com.google.apphosting.utils.servlet.SnapshotServlet;
-import com.google.apphosting.utils.servlet.WarmupServlet;
-import com.google.common.collect.ImmutableSet;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -50,6 +35,19 @@ import javax.servlet.Servlet;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
+import com.google.apphosting.api.ApiProxy;
+import com.google.apphosting.api.ApiProxy.LogRecord;
+import com.google.apphosting.runtime.jetty9.AppEngineAuthentication;
+import com.google.apphosting.runtime.jetty9.ParseBlobUploadHandler;
+import com.google.apphosting.runtime.jetty9.RequestListener;
+import com.google.apphosting.runtime.jetty9.TransactionCleanupListener;
+import com.google.apphosting.utils.servlet.DeferredTaskServlet;
+import com.google.apphosting.utils.servlet.JdbcMySqlConnectionCleanupFilter;
+import com.google.apphosting.utils.servlet.SessionCleanupServlet;
+import com.google.apphosting.utils.servlet.SnapshotServlet;
+import com.google.apphosting.utils.servlet.WarmupServlet;
+import com.google.common.collect.ImmutableSet;
 import org.eclipse.jetty.security.ConstraintMapping;
 import org.eclipse.jetty.security.ConstraintSecurityHandler;
 import org.eclipse.jetty.server.Request;
@@ -65,6 +63,9 @@ import org.eclipse.jetty.util.resource.JarResource;
 import org.eclipse.jetty.util.resource.Resource;
 import org.eclipse.jetty.util.security.Constraint;
 import org.eclipse.jetty.webapp.WebAppContext;
+
+import static com.google.common.base.StandardSystemProperty.JAVA_IO_TMPDIR;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * {@code AppEngineWebAppContext} is a customization of Jetty's {@link WebAppContext} that is aware
@@ -197,20 +198,24 @@ public class AppEngineWebAppContext extends WebAppContext {
     return false;
   }
 
+
+
   @Override
-  public void addEventListener(EventListener listener) {
-    super.addEventListener(listener);
+  public boolean addEventListener(EventListener listener) {
+    boolean added = super.addEventListener(listener);
     if (listener instanceof RequestListener) {
-      requestListeners.add((RequestListener) listener);
+      added |= requestListeners.add((RequestListener) listener);
     }
+    return added;
   }
 
   @Override
-  public void removeEventListener(EventListener listener) {
-    super.removeEventListener(listener);
+  public boolean removeEventListener(EventListener listener) {
+    boolean removed = super.removeEventListener(listener);
     if (listener instanceof RequestListener) {
-      requestListeners.remove((RequestListener) listener);
+      removed |= requestListeners.remove((RequestListener) listener);
     }
+    return removed;
   }
 
   @Override
@@ -220,8 +225,8 @@ public class AppEngineWebAppContext extends WebAppContext {
   }
 
   @Override
-  protected void startWebapp() throws Exception {
-
+  protected void startContext() throws Exception
+  {
     // startWebapp is called after the web.xml meta data has been resolved, so we can
     // clean configuration here:
     //  - Removed deprecated filters and servlets
@@ -229,23 +234,23 @@ public class AppEngineWebAppContext extends WebAppContext {
     //  - Ensure known runtime mappings exist.
     ServletHandler servletHandler = getServletHandler();
     TrimmedFilters trimmedFilters =
-        new TrimmedFilters(
-            servletHandler.getFilters(),
-            servletHandler.getFilterMappings(),
-            DEPRECATED_SERVLETS_FILTERS);
+      new TrimmedFilters(
+        servletHandler.getFilters(),
+        servletHandler.getFilterMappings(),
+        DEPRECATED_SERVLETS_FILTERS);
     trimmedFilters.ensure(
-        "CloudSqlConnectionCleanupFilter", JdbcMySqlConnectionCleanupFilter.class, "/*");
+      "CloudSqlConnectionCleanupFilter", JdbcMySqlConnectionCleanupFilter.class, "/*");
 
     TrimmedServlets trimmedServlets =
-        new TrimmedServlets(
-            servletHandler.getServlets(),
-            servletHandler.getServletMappings(),
-            DEPRECATED_SERVLETS_FILTERS);
+      new TrimmedServlets(
+        servletHandler.getServlets(),
+        servletHandler.getServletMappings(),
+        DEPRECATED_SERVLETS_FILTERS);
     trimmedServlets.ensure("_ah_warmup", WarmupServlet.class, "/_ah/warmup");
     trimmedServlets.ensure(
-        "_ah_sessioncleanup", SessionCleanupServlet.class, "/_ah/sessioncleanup");
+      "_ah_sessioncleanup", SessionCleanupServlet.class, "/_ah/sessioncleanup");
     trimmedServlets.ensure(
-        "_ah_queue_deferred", DeferredTaskServlet.class, "/_ah/queue/__deferred__");
+      "_ah_queue_deferred", DeferredTaskServlet.class, "/_ah/queue/__deferred__");
     trimmedServlets.ensure("_ah_snapshot", SnapshotServlet.class, "/_ah/snapshot");
     trimmedServlets.ensure("_ah_default", ResourceFileServlet.class, "/");
     trimmedServlets.ensure("default", NamedDefaultServlet.class);
@@ -271,7 +276,7 @@ public class AppEngineWebAppContext extends WebAppContext {
     security.addConstraintMapping(cm);
 
     // continue starting the webapp
-    super.startWebapp();
+    super.startContext();
   }
 
   @Override

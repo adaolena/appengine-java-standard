@@ -17,7 +17,7 @@
 package com.google.appengine.tools.development.jetty9;
 
 import java.io.File;
-import org.eclipse.jetty.util.resource.FileResource;
+
 import org.eclipse.jetty.util.resource.Resource;
 import org.eclipse.jetty.util.resource.ResourceCollection;
 
@@ -47,7 +47,7 @@ public class ExtendedRootResource extends ResourceCollection {
       throw new NullPointerException("externalResourceDir may not be null");
     }
     try {
-      return new FileResource(f.toURI().toURL());
+      return Resource.newResource(f.toURI().toURL());
     } catch (Exception e) {
       throw new IllegalArgumentException("Invalid externalResourceDirectory: " + f.getPath(), e);
     }

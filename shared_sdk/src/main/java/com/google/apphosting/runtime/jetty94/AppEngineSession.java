@@ -19,10 +19,11 @@ package com.google.apphosting.runtime.jetty94;
 import java.io.NotSerializableException;
 import java.io.Serializable;
 import javax.servlet.http.HttpServletRequest;
+
 import org.eclipse.jetty.server.session.Session;
 import org.eclipse.jetty.server.session.SessionData;
 import org.eclipse.jetty.server.session.SessionHandler;
-import org.eclipse.jetty.util.thread.Locker.Lock;
+import org.eclipse.jetty.util.thread.AutoLock;
 
 /**
  * This subclass exists to prevent a call to setMaxInactiveInterval(int) marking the session as
@@ -62,7 +63,7 @@ class AppEngineSession extends Session {
   /** @see org.eclipse.jetty.server.session.Session#setMaxInactiveInterval(int) */
   @Override
   public void setMaxInactiveInterval(int secs) {
-    try (Lock lock = _lock.lockIfNotHeld()) {
+    try (AutoLock lock = _lock.lock()) {
       boolean savedDirty = _sessionData.isDirty();
       super.setMaxInactiveInterval(secs);
       // Ensure it is unchanged by call to setMaxInactiveInterval
@@ -77,7 +78,7 @@ class AppEngineSession extends Session {
    */
   @Override
   protected boolean access(long time) {
-    try (Lock lock = _lock.lock()) {
+    try (AutoLock lock = _lock.lock()) {
       if (isValid()) {
         long timeRemaining = _sessionData.getExpiry() - time;
         if (timeRemaining < (_sessionData.getMaxInactiveMs() * UPDATE_TIMESTAMP_RATIO)) {

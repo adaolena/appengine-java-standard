@@ -16,6 +16,17 @@
 
 package com.google.apphosting.runtime.jetty94;
 
+import java.io.IOException;
+import java.time.Duration;
+import java.util.Collections;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Level;
+import javax.servlet.ServletOutputStream;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
 import com.google.apphosting.base.protos.AppLogsPb;
 import com.google.apphosting.base.protos.AppinfoPb;
 import com.google.apphosting.base.protos.EmptyMessage;
@@ -41,16 +52,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.MessageLite;
 import com.google.protobuf.TextFormat;
-import java.io.IOException;
-import java.time.Duration;
-import java.util.Collections;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.logging.Level;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.eclipse.jetty.http.HttpCompliance;
 import org.eclipse.jetty.http.HttpField;
 import org.eclipse.jetty.server.Connector;
@@ -114,7 +115,7 @@ public class JettyHttpProxy {
     server.setConnectors(new Connector[]{c});
 
     HttpConnectionFactory factory = c.getConnectionFactory(HttpConnectionFactory.class);
-    factory.setHttpCompliance(
+    factory.getHttpConfiguration().setHttpCompliance(
         RpcConnector.LEGACY_MODE ? HttpCompliance.RFC7230_LEGACY : HttpCompliance.RFC7230);
 
     HttpConfiguration config = factory.getHttpConfiguration();

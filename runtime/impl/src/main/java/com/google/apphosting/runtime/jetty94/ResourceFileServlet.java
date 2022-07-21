@@ -16,11 +16,6 @@
 
 package com.google.apphosting.runtime.jetty94;
 
-import com.google.apphosting.runtime.AppVersion;
-import com.google.apphosting.runtime.jetty9.JettyConstants;
-import com.google.apphosting.utils.config.AppYaml;
-import com.google.common.base.Ascii;
-import com.google.common.flogger.GoogleLogger;
 import java.io.IOException;
 import java.util.Objects;
 import javax.servlet.RequestDispatcher;
@@ -29,10 +24,15 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
+import com.google.apphosting.runtime.AppVersion;
+import com.google.apphosting.runtime.jetty9.JettyConstants;
+import com.google.apphosting.utils.config.AppYaml;
+import com.google.common.base.Ascii;
+import com.google.common.flogger.GoogleLogger;
 import org.eclipse.jetty.http.pathmap.MappedResource;
 import org.eclipse.jetty.server.handler.ContextHandler;
 import org.eclipse.jetty.servlet.ServletHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.StringUtil;
 import org.eclipse.jetty.util.URIUtil;
 import org.eclipse.jetty.util.resource.Resource;
@@ -185,7 +185,7 @@ public class ResourceFileServlet extends HttpServlet {
       }
     } finally {
       if (resource != null) {
-        resource.release();
+        resource.close();
       }
     }
   }
@@ -253,7 +253,7 @@ public class ResourceFileServlet extends HttpServlet {
         (AppVersion) getServletContext().getAttribute(JettyConstants.APP_VERSION_CONTEXT_ATTR);
     ServletHandler handler = chandler.getChildHandlerByClass(ServletHandler.class);
 
-    MappedResource<ServletHolder> defaultEntry = handler.getHolderEntry("/");
+    MappedResource<ServletHandler.MappedServlet> defaultEntry = handler.getHolderEntry("/");
 
     for (String welcomeName : welcomeFiles) {
       String welcomePath = path + welcomeName;

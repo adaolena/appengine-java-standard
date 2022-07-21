@@ -16,8 +16,6 @@
 
 package com.google.appengine.tools.development.jetty9;
 
-import com.google.apphosting.utils.config.AppEngineWebXml;
-import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.HashSet;
@@ -29,10 +27,14 @@ import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
+import com.google.apphosting.utils.config.AppEngineWebXml;
+import com.google.common.annotations.VisibleForTesting;
 import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.http.HttpMethod;
 import org.eclipse.jetty.io.WriterOutputStream;
 import org.eclipse.jetty.server.handler.ContextHandler;
+import org.eclipse.jetty.util.IO;
 import org.eclipse.jetty.util.URIUtil;
 import org.eclipse.jetty.util.resource.Resource;
 
@@ -177,7 +179,7 @@ public class StaticFileUtils {
     } catch (IllegalStateException e) {
       out = new WriterOutputStream(response.getWriter());
     }
-    resource.writeTo(out, 0, contentLength);
+    IO.copy(resource.getInputStream(), out, contentLength);
   }
 
   /**

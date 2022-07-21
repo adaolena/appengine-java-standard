@@ -16,14 +16,13 @@
 
 package com.google.apphosting.runtime.jetty94;
 
-import static com.google.common.io.BaseEncoding.base64Url;
-
-import com.google.auto.value.AutoValue;
-import com.google.common.annotations.VisibleForTesting;
 import java.security.SecureRandom;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.servlet.http.HttpServletRequest;
+
+import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.session.CachingSessionDataStore;
 import org.eclipse.jetty.server.session.DefaultSessionIdManager;
@@ -34,6 +33,8 @@ import org.eclipse.jetty.server.session.SessionData;
 import org.eclipse.jetty.server.session.SessionDataStore;
 import org.eclipse.jetty.server.session.SessionHandler;
 import org.eclipse.jetty.servlet.ServletContextHandler;
+
+import static com.google.common.io.BaseEncoding.base64Url;
 
 /**
  * Utility that configures the new Jetty 9.4 Servlet Session Manager in App Engine. It is used both
@@ -153,7 +154,7 @@ public class SessionManagerHandler {
   }
 
   /**
-   * This is the replacement for {@link org.eclipse.jetty.server.session.NoOpSessionManager}. It
+   * This is the replacement for {@code  org.eclipse.jetty.server.session.NoOpSessionManager}. It
    * does no caching, and is a factory for the new NullSession class.
    */
   private static class AppEngineNullSessionCache extends NullSessionCache {
