@@ -264,6 +264,7 @@ public class LocalSearchService extends AbstractLocalRpcService {
         LOG.log(Level.SEVERE, "Failed to close index writer", e);
       }
     }
+    indexWriters.clear();
     if (dirMap != null) {
       try {
         dirMap.close();
